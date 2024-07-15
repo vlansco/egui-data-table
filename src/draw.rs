@@ -146,6 +146,7 @@ impl<'a, R, V: RowViewer<R>> Renderer<'a, R, V> {
                     if resp.dragged() {
                         egui::popup::show_tooltip_text(
                             ctx,
+                            ui.layer_id(),
                             "_EGUI_DATATABLE__COLUMN_MOVE__".into(),
                             viewer.column_name(col.0),
                         );
