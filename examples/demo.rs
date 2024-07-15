@@ -1,6 +1,7 @@
+use egui_data_table::UiAction;
 use std::{borrow::Cow, iter::repeat_with};
 
-use egui::{Response, Sense, Widget};
+use egui::{Sense, Widget};
 use egui_data_table::{
     viewer::{default_hotkeys, CellWriteContext, UiActionContext},
     RowViewer,
@@ -60,8 +61,69 @@ impl RowViewer<Row> for Viewer {
         cmp
     }
 
-    fn new_empty_row(&mut self) -> Row {
-        Row("".to_string(), 0, false, Grade::F)
+    fn row_filter_hash(&mut self) -> &impl std::hash::Hash {
+        &self.filter
+    }
+
+    fn create_row_filter(&mut self) -> impl Fn(&Row) -> bool {
+        |r| r.0.contains(&self.filter)
+    }
+
+    fn show_cell_view(&mut self, ui: &mut egui::Ui, row: &Row, column: usize) {
+        let _ = match column {
+            0 => ui.label(&row.0),
+            1 => ui.label(&row.1.to_string()),
+            2 => ui.checkbox(&mut { row.2 }, ""),
+            3 => ui.label(match row.3 {
+                Grade::A => "A",
+                Grade::B => "B",
+                Grade::C => "C",
+                Grade::F => "F",
+            }),
+
+            _ => unreachable!(),
+        };
+    }
+
+    fn on_cell_view_response(
+        &mut self,
+        _row: &Row,
+        _column: usize,
+        resp: &egui::Response,
+    ) -> Option<Box<Row>> {
+        resp.dnd_release_payload::<String>()
+            .map(|x| Box::new(Row((*x).clone(), 9999, false, Grade::A)))
+    }
+
+    fn show_cell_editor(
+        &mut self,
+        ui: &mut egui::Ui,
+        row: &mut Row,
+        column: usize,
+    ) -> Option<egui::Response> {
+        match column {
+            0 => {
+                egui::TextEdit::multiline(&mut row.0)
+                    .desired_rows(1)
+                    .code_editor()
+                    .show(ui)
+                    .response
+            }
+            1 => ui.add(egui::DragValue::new(&mut row.1).speed(1.0)),
+            2 => ui.checkbox(&mut row.2, ""),
+            3 => {
+                let grade = &mut row.3;
+                ui.horizontal_wrapped(|ui| {
+                    ui.radio_value(grade, Grade::A, "A")
+                        | ui.radio_value(grade, Grade::B, "B")
+                        | ui.radio_value(grade, Grade::C, "C")
+                        | ui.radio_value(grade, Grade::F, "F")
+                })
+                .inner
+            }
+            _ => unreachable!(),
+        }
+        .into()
     }
 
     fn set_cell_value(&mut self, src: &Row, dst: &mut Row, column: usize) {
@@ -96,75 +158,14 @@ impl RowViewer<Row> for Viewer {
         !row.2
     }
 
-    fn show_cell_view(&mut self, ui: &mut egui::Ui, row: &Row, column: usize) {
-        let _ = match column {
-            0 => ui.label(&row.0),
-            1 => ui.label(&row.1.to_string()),
-            2 => ui.checkbox(&mut { row.2 }, ""),
-            3 => ui.label(match row.3 {
-                Grade::A => "A",
-                Grade::B => "B",
-                Grade::C => "C",
-                Grade::F => "F",
-            }),
-
-            _ => unreachable!(),
-        };
-    }
-
-    fn on_cell_view_response(
-        &mut self,
-        _row: &Row,
-        _column: usize,
-        resp: &egui::Response,
-    ) -> Option<Box<Row>> {
-        resp.dnd_release_payload::<String>()
-            .map(|x| Box::new(Row((*x).clone(), 9999, false, Grade::A)))
-    }
-
-    fn show_cell_editor(
-        &mut self,
-        ui: &mut egui::Ui,
-        row: &mut Row,
-        column: usize,
-    ) -> Option<Response> {
-        match column {
-            0 => {
-                egui::TextEdit::multiline(&mut row.0)
-                    .desired_rows(1)
-                    .code_editor()
-                    .show(ui)
-                    .response
-            }
-            1 => ui.add(egui::DragValue::new(&mut row.1).speed(1.0)),
-            2 => ui.checkbox(&mut row.2, ""),
-            3 => {
-                let grade = &mut row.3;
-                ui.horizontal_wrapped(|ui| {
-                    ui.radio_value(grade, Grade::A, "A")
-                        | ui.radio_value(grade, Grade::B, "B")
-                        | ui.radio_value(grade, Grade::C, "C")
-                        | ui.radio_value(grade, Grade::F, "F")
-                })
-                .inner
-            }
-            _ => unreachable!(),
-        }
-        .into()
-    }
-
-    fn row_filter_hash(&mut self) -> &impl std::hash::Hash {
-        &self.filter
-    }
-
-    fn create_row_filter(&mut self) -> impl Fn(&Row) -> bool {
-        |r| r.0.contains(&self.filter)
+    fn new_empty_row(&mut self) -> Row {
+        Row("".to_string(), 0, false, Grade::F)
     }
 
     fn hotkeys(
         &mut self,
         context: &UiActionContext,
-    ) -> Vec<(egui::KeyboardShortcut, egui_data_table::UiAction)> {
+    ) -> std::vec::Vec<(egui::KeyboardShortcut, UiAction)> {
         let hotkeys = default_hotkeys(context);
         self.hotkeys.clone_from(&hotkeys);
         hotkeys
@@ -269,7 +270,7 @@ impl eframe::App for DemoApp {
                     for (k, a) in &self.viewer.hotkeys {
                         egui::Button::new(format!("{a:?}"))
                             .shortcut_text(ctx.format_shortcut(k))
-                            .wrap(false)
+                            .wrap_mode(egui::TextWrapMode::Truncate)
                             .sense(Sense::hover())
                             .ui(ui);
                     }

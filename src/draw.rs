@@ -65,6 +65,7 @@ impl<'a, R, V: RowViewer<R>> Renderer<'a, R, V> {
     pub fn show(mut self, ui: &mut egui::Ui) -> Response {
         let ctx = &ui.ctx().clone();
         let ui_id = ui.id();
+        let layer_id = ui.layer_id();
         let style = ui.style().clone();
         let painter = ui.painter().clone();
         let visual = &style.visuals;
@@ -93,6 +94,7 @@ impl<'a, R, V: RowViewer<R>> Renderer<'a, R, V> {
             let interact_row = s.interactive_cell().0;
             builder = builder.scroll_to_row(interact_row.0, None);
         }
+
 
         builder
             .columns(Column::auto(), s.num_columns() - s.vis_cols().len())
@@ -142,11 +144,10 @@ impl<'a, R, V: RowViewer<R>> Renderer<'a, R, V> {
 
                     // Set drag payload for column reordering.
                     resp.dnd_set_drag_payload(vis_col);
-
                     if resp.dragged() {
                         egui::popup::show_tooltip_text(
                             ctx,
-                            ui.layer_id(),
+                            layer_id,
                             "_EGUI_DATATABLE__COLUMN_MOVE__".into(),
                             viewer.column_name(col.0),
                         );
